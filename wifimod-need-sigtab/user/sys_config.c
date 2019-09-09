@@ -16,7 +16,7 @@
 #include <bps_task.h>
 #include <bps_public.h>
 #include <bps_parse.h>
-#include <bps_sig_ret_code.h>
+#include <bps_ret_code.h>
 #include <bps_comm_type.h>
 #include <bps_net_mode.h>
 #include <bps_net_state.h>

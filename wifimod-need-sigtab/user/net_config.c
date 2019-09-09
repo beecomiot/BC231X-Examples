@@ -36,7 +36,7 @@
 #include <bps_task.h>
 #include <bps_public.h>
 #include <bps_parse.h>
-#include <bps_sig_ret_code.h>
+#include <bps_ret_code.h>
 #include <bps_comm_type.h>
 #include <bps_net_mode.h>
 #include <bps_net_state.h>
@@ -65,10 +65,42 @@ static EnNetConfigLogicMode g_NetConfigLogic = EN_LOGIC_1;
 static uint8_t g_intrTriggered = 0;
 static uint8_t g_smartConfigDoing = 0;
 static uint16_t g_runCount = 0; 
+
+/** g_netConfigOk:
+  * 1. to indicate if the device connected to Wifi(SmartConfigure) 
+  * 2. to indicate if the device is in Station&AP mode(AP configure)
+ **/
 static uint8_t g_netConfigOk = 0;
 static  BP_SpecackStr str_specack;
 
+/** g_aliveTime:
+  * alive time for the device to keep alive with the BcServer
+ **/
+static uint16_t g_aliveTime;
+/** g_netMode:
+  * SmartConfigure or AP configure
+ **/
+static uint8_t g_netMode;
+
 char RECV_BUF[RECV_BUF_SIZE];
+
+/* set/get interfaces */
+void setAliveTime(uint16_t tmp)
+{
+    g_aliveTime = tmp;
+}
+const uint16_t getAliveTime()
+{
+    return g_aliveTime;
+}
+void setNetMode(uint8_t tmp)
+{
+    g_netMode = tmp;
+}
+const uint8_t getNetMode()
+{
+    return g_netMode;
+}
 
 int ICACHE_FLASH_ATTR handleBpPacket(int sockfd, BP_UINT8 * recvBuf, BP_WORD size, BP_UINT8 * type_and_flags) 
 {
@@ -187,6 +219,7 @@ LOCAL EnNetConfigLogicMode logic35() {
         }
     }
 
+    /* timeout and return to stop */
     if(g_runCount++ > SMART_CONFIG_CHECK_COUNT) {
         logicMode = EN_LOGIC_7;
     }
@@ -196,7 +229,29 @@ LOCAL EnNetConfigLogicMode logic35() {
 }
 
 LOCAL EnNetConfigLogicMode logic24() {
-    return EN_LOGIC_2;
+    EnNetConfigLogicMode logicMode = EN_LOGIC_2;
+    WIFI_MODE wm = wifi_get_opmode();
+
+    if(g_netConfigOk) {
+        /* step 2: start local server to get admin ID */
+        if(0 == startLocalServer()) {
+            bc_printf("EN_LOGIC_1\n");
+            logicMode = EN_LOGIC_1;
+        } else {
+            bc_printf("EN_LOGIC_8\n");
+            logicMode = EN_LOGIC_8;
+        }
+    } else {
+        /* step 1: start Station&AP mode */
+        if(STATIONAP_MODE != wm) {
+            wifi_set_mode(STATIONAP_MODE);
+            printf("Station&AP:reset mode\n");
+        }
+        g_netConfigOk = 1;
+    }
+
+
+    return logicMode;
 }
 
 LOCAL EnNetConfigLogicMode logic1() {
@@ -259,6 +314,7 @@ LOCAL void net_config_task(void* p)
                     break;
                 case EN_LOGIC_2:
                 case EN_LOGIC_4:
+                    bc_printf("logic24: \n");
                     g_NetConfigLogic = logic24();
                     break;
                 case EN_LOGIC_3:

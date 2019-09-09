@@ -16,7 +16,7 @@
 #include <bps_task.h>
 #include <bps_public.h>
 #include <bps_parse.h>
-#include <bps_sig_ret_code.h>
+#include <bps_ret_code.h>
 #include <bps_comm_type.h>
 #include <bps_net_mode.h>
 #include <bps_net_state.h>
@@ -67,7 +67,10 @@ LOCAL void bps_task(void* p)
     BPSPacketData parseData;
     BPS_UINT8 * sendBufTmp;
     BPS_UINT16 tmpLen;
+    BPS_UINT8 reqType;
+    BPS_UINT8 paraU8;
     const BPS_WORD packRmnSize = sizeof(g_SendBuffer) - BPS_HEADER_SIZE - BPS_VERSION_SIZE - BPS_ADDR_SIZE - BPS_REMAIN_LEN_SIZE;
+    BPS_UINT8 tmpString[8];
     int i;
 
     // if(0 == ConfigRead(EN_CONFIG_ID_SN, SN, sizeof(SN)) && 0 == ConfigRead(EN_CONFIG_ID_KEY, KEY, sizeof(KEY))) {
@@ -121,11 +124,23 @@ LOCAL void bps_task(void* p)
                     break;
                 case CMD_CONFIG_NETSET_WORD_REQ:
                     bc_printf("CMD_CONFIG_NETSET_WORD_REQ bps_task\r\n");
-                    /* TODO: parse and do ping packet */
-                    bpsPackData.pu.configNetsetRsp.retCode = BPS_RET_CODE_OK; // TODO: test data
+                    reqType = parseData.pu.configNetsetReq.type;
+                    paraU8 = parseData.pu.configNetsetReq.mode;
+                    if(QUERY_RT_CONFIG_NET == reqType) {
+                        /* do nothing */
+                    } if(SET_RT_CONFIG_NET == reqType) {
+                        if(NM_WIFI_SMARTCONFIG != paraU8 && NM_WIFI_AP != paraU8) {
+                            bpsPackData.pu.configNetsetRsp.retCode = BPS_RET_CODE_CMD_PARA_INVALID;
+                        } else {
+                            sprintf(tmpString, "%d", paraU8);
+                            ConfigWrite(EN_CONFIG_ID_NET_MODE, tmpString);
+                            setNetMode(paraU8);
+                        }
+                    } else {
+                        bpsPackData.pu.configNetsetRsp.retCode = BPS_RET_CODE_CMD_TYPE_INVALID;
+                    }
                     bpsPackData.pu.configNetsetRsp.commType = CT_WIFI;
-                    bpsPackData.pu.configNetsetRsp.mode = NM_WIFI_AP;
-                    tmpLen = BPSPackConfigNetsetRsp(&(bpsPackData.pu.configNetsetRsp), sendBufTmp, packRmnSize);
+                    bpsPackData.pu.configNetsetRsp.mode = getNetMode();
                     break;
                 case CMD_CONFIG_NETSET_WORD_RSP:
                 case CMD_NETSTATE_QUERY_WORD_REQ:

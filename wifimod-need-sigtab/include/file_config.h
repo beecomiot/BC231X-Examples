@@ -10,15 +10,19 @@
 /**
   */
 
-#define CONFIG_FILE_SN          "/sn.cfg"
-#define CONFIG_FILE_KEY         "/key.cfg"
-#define CONFIG_FILE_ADMIN       "/admin.cfg"
+#define CONFIG_FILE_SN              "/sn.cfg"
+#define CONFIG_FILE_KEY             "/key.cfg"
+#define CONFIG_FILE_ADMIN           "/admin.cfg"
+#define CONFIG_FILE_ALIVE_TIME      "/alivetime.cfg"
+#define CONFIG_FILE_NET_MODE        "/netmode.cfg"
 
 typedef enum EnConfigId {
     EN_CONFIG_ID_RESERVED=0,
     EN_CONFIG_ID_SN,
     EN_CONFIG_ID_KEY,
     EN_CONFIG_ID_ADMIN,
+    EN_CONFIG_ID_ALIVE_TIME,
+    EN_CONFIG_ID_NET_MODE,
 } EnConfigId;
 
 /******************************************************************************

@@ -44,6 +44,7 @@
 #include <bc_comm.h>
 #include <state_mng.h>
 #include <net_config.h>
+#include <bps_net_mode.h>
 
 #define FS1_FLASH_SIZE      (512*1024)
 
@@ -142,6 +143,9 @@ LOCAL void init_task(void* p)
 {
     EnIndicatorState st = EN_INDICATOR_SERV_CONNECTING;
     int specModeCheckCount = 30;
+    uint16_t aliveTime;
+    uint8_t netMode;
+    char tmpString[8];
 
     /* read SN and KEY */
     // Read file from generated image with mkspiffs tool 
@@ -167,6 +171,29 @@ LOCAL void init_task(void* p)
         bc_printf("error admin=\n");
         st = EN_INDICATOR_UNCONFIGURE;
     }
+
+    /* read AliveTime and NetMode */
+    if(0 == ConfigRead(EN_CONFIG_ID_ALIVE_TIME, tmpString, sizeof(tmpString)-1)) {
+        aliveTime = atoi(tmpString);
+        bc_printf("aliveTime=%d\n", aliveTime);
+    } else {
+        aliveTime = BPContextEmbeded.BPAlivePeroid;
+        sprintf(tmpString, "%d", aliveTime);
+        ConfigWrite(EN_CONFIG_ID_ALIVE_TIME, tmpString);
+        bc_printf("aliveTime(default)=%s\n", tmpString);
+    }
+    setAliveTime(aliveTime);
+
+    if(0 == ConfigRead(EN_CONFIG_ID_NET_MODE, tmpString, sizeof(tmpString)-1)) {
+        netMode = atoi(tmpString);
+        bc_printf("netMode=%d\n", aliveTime);
+    } else {
+        netMode = NM_WIFI_SMARTCONFIG;
+        sprintf(tmpString, "%d", netMode);
+        ConfigWrite(EN_CONFIG_ID_NET_MODE, tmpString);
+        bc_printf("netMode(default)=%s\n", tmpString);
+    }
+    setNetMode(netMode);
 
     /* create queue for serial */
     g_ComQueue = xQueueCreate(BPS_COM_QUEUE_SIZE, sizeof(BPSPacketData));

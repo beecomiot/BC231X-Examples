@@ -39,6 +39,10 @@ void ICACHE_FLASH_ATTR smartconfig_done(sc_status status, void *pdata);
 void net_config_task_init();
 void updateNetConfigLogic(EnNetConfigLogicMode logic_mode);
 int startLocalServer();
+void setAliveTime(uint16_t tmp);
+const uint16_t getAliveTime();
+void setNetMode(uint8_t tmp);
+const uint8_t getNetMode();
 
 #endif
 

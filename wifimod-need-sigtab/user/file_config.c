@@ -83,6 +83,10 @@ const char * GetConfigFileName(uint8_t config_id)
             return CONFIG_FILE_KEY;
         case EN_CONFIG_ID_ADMIN:
             return CONFIG_FILE_ADMIN;
+        case EN_CONFIG_ID_ALIVE_TIME:
+            return CONFIG_FILE_ALIVE_TIME;
+        case EN_CONFIG_ID_NET_MODE:
+            return CONFIG_FILE_NET_MODE;
         default:
             return NULL;
     }
