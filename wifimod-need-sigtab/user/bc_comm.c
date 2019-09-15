@@ -497,18 +497,6 @@ LOCAL void bc_comm(void* p)
              /* wait message from the fd set */
              ret = select(sockfd_bcserver+1, &rfds, NULL, NULL, &tv);
 
-             // if(gWifiApClientConnected > 0) {
-             //     /* ap is connected, close old socket and wait */
-             //     bc_printf("select: %d,%d\n", sockfd_bcserver, gWifiApClientConnected);
-             //     if(sockfd_bcserver > 0) {
-             //         bc_printf("close old socket\n");
-             //         p_pack_buf = BP_PackDisconn(&BPContextEmbeded);
-             //         n=send(sockfd_bcserver,p_pack_buf->PackStart,p_pack_buf->MsgSize,0);
-             //         bc_close(&sockfd_bcserver);
-             //     }
-             //     break;
-             // }
-
              if(ret < 0) {
                  /* error occurred */
                  bc_close(&sockfd_bcserver);
@@ -588,7 +576,9 @@ LOCAL void bc_comm(void* p)
              }
          }
 
-         updateIndicator(EN_INDICATOR_SERV_CONNECTING);
+         if(EN_MS_CONNECT_SERVER == getModuleState()) {
+             updateIndicator(EN_INDICATOR_SERV_CONNECTING);
+         }
 
      }
 }

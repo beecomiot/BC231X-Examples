@@ -143,3 +143,8 @@ void updateIndicator(EnIndicatorState st)
 {
     state = st;
 }
+
+EnIndicatorState getIndicator()
+{
+    return state;
+}

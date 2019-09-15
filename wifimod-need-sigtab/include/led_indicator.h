@@ -27,6 +27,7 @@ typedef struct IndicateUnit {
 
 void led_indicator_task_init(EnIndicatorState st);
 void updateIndicator(EnIndicatorState st);
+EnIndicatorState getIndicator();
 
 #endif
 

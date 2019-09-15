@@ -60,10 +60,12 @@
 #include <state_mng.h>
 
 
+
 xTaskHandle net_config_task_handler = NULL;
 static EnNetConfigLogicMode g_NetConfigLogic = EN_LOGIC_1;
 static uint8_t g_intrTriggered = 0;
 static uint8_t g_smartConfigDoing = 0;
+static uint8_t g_apConfigDoing = 0;
 static uint16_t g_runCount = 0; 
 
 /** g_netConfigOk:
@@ -159,6 +161,23 @@ int ICACHE_FLASH_ATTR handleBpPacket(int sockfd, BP_UINT8 * recvBuf, BP_WORD siz
     return len;
 }
 
+LOCAL void startAPConfig() {
+    if(!g_apConfigDoing) {
+        printf("start ap config\n");
+        g_apConfigDoing = 1;
+        wifi_station_disconnect();
+        wifi_set_mode(SOFTAP_MODE);
+        start_wifi_ap(SOFTAP_SSID, SOFTAP_PASS);
+    }
+}
+
+LOCAL void stopAPConfig() {
+    if(g_apConfigDoing) {
+        g_apConfigDoing = 0;
+        stop_wifi_ap();
+    }
+}
+
 LOCAL void startSmartConfig() {
     if(!g_smartConfigDoing) {
         printf("start smart config\n");
@@ -194,13 +213,14 @@ LOCAL EnNetConfigLogicMode logic35() {
 
     if(g_netConfigOk) {
         /* step 2: start local server to get admin ID */
-        if(0 == startLocalServer()) {
+        if(0 == startLocalServer(SMART_CONFIG_CHECK_UNIT_S, SMART_CONFIG_CHECK_UNIT * 1000, SMART_CONFIG_CHECK_COUNT)) {
             bc_printf("EN_LOGIC_1\n");
             logicMode = EN_LOGIC_1;
         } else {
             bc_printf("EN_LOGIC_8\n");
             logicMode = EN_LOGIC_8;
         }
+        stopSmartConfig();
     } else {
         /* step 1: start smart config */
         if(!g_smartConfigDoing) {
@@ -234,18 +254,24 @@ LOCAL EnNetConfigLogicMode logic24() {
 
     if(g_netConfigOk) {
         /* step 2: start local server to get admin ID */
-        if(0 == startLocalServer()) {
+        // if(0 == startLocalServer()) 
+        if(0 == startLocalServer(AP_CONFIG_CHECK_UNIT_S, AP_CONFIG_CHECK_UNIT * 1000, AP_CONFIG_CHECK_COUNT)) {
             bc_printf("EN_LOGIC_1\n");
+            start_wifi_station(g_bcWifiInfo.stationConfig.ssid, g_bcWifiInfo.stationConfig.password);
             logicMode = EN_LOGIC_1;
         } else {
             bc_printf("EN_LOGIC_8\n");
             logicMode = EN_LOGIC_8;
         }
+        stopAPConfig();
     } else {
         /* step 1: start Station&AP mode */
-        if(STATIONAP_MODE != wm) {
-            wifi_set_mode(STATIONAP_MODE);
-            printf("Station&AP:reset mode\n");
+        if(SOFTAP_MODE != wm) {
+            // wifi_set_mode(STATIONAP_MODE);
+            // start_wifi_ap(SOFTAP_SSID, SOFTAP_PASS);
+            startAPConfig();
+            printf("AP:reset mode\n");
+            return logicMode;
         }
         g_netConfigOk = 1;
     }
@@ -262,7 +288,12 @@ LOCAL EnNetConfigLogicMode logic1() {
 }
 
 LOCAL EnNetConfigLogicMode logic678() {
+    WIFI_MODE wm = wifi_get_opmode();
     stopSmartConfig();
+    if(STATION_MODE != wm) {
+        wifi_set_mode(STATION_MODE);
+    }
+    wifi_station_connect();
     return EN_LOGIC_8;
 }
 
@@ -290,9 +321,9 @@ LOCAL void net_config_task(void* p)
                 vTaskDelay(AP_SET_GPIO_CHECK_UNIT/portTICK_RATE_MS);
             }
             if(tmp <= 0) {
-                g_NetConfigLogic = EN_LOGIC_2;
+                updateNetConfigLogic(EN_LOGIC_2);
             } else {
-                g_NetConfigLogic = EN_LOGIC_3;
+                updateNetConfigLogic(EN_LOGIC_3);
             }
         }
 
@@ -303,24 +334,26 @@ LOCAL void net_config_task(void* p)
             uint8_t withdrawConfig = 0;
             switch(g_NetConfigLogic) {
                 case EN_LOGIC_1:
-                    g_NetConfigLogic = logic1();
+                    updateNetConfigLogic(logic1());
+                    bc_printf("logic1: \n");
                     withdrawConfig = 1;
                     break;
                 case EN_LOGIC_6:
                 case EN_LOGIC_7:
                 case EN_LOGIC_8:
-                    g_NetConfigLogic = logic678();
+                    bc_printf("logic678: \n");
+                    updateNetConfigLogic(logic678());
                     withdrawConfig = 1;
                     break;
                 case EN_LOGIC_2:
                 case EN_LOGIC_4:
                     bc_printf("logic24: \n");
-                    g_NetConfigLogic = logic24();
+                    updateNetConfigLogic(logic24());
                     break;
                 case EN_LOGIC_3:
                 case EN_LOGIC_5:
                     bc_printf("logic35: \n");
-                    g_NetConfigLogic = logic35();
+                    updateNetConfigLogic(logic35());
                     break;
             }
             if(withdrawConfig) {
@@ -366,6 +399,11 @@ void net_config_task_init()
 void updateNetConfigLogic(EnNetConfigLogicMode logic_mode)
 {
     g_NetConfigLogic = logic_mode;
+}
+
+EnNetConfigLogicMode getNetConfigLogic()
+{
+    return g_NetConfigLogic;
 }
 
 void ICACHE_FLASH_ATTR
@@ -414,7 +452,7 @@ smartconfig_done(sc_status status, void *pdata)
 
 }
 
-int startLocalServer()
+int startLocalServer(unsigned int sec, unsigned int usec, unsigned int count)
 {
     int ret;
 	int len;
@@ -451,7 +489,7 @@ int startLocalServer()
     ret = bind(local_server_sockfd, (struct sockaddr*)&sock_addr, sizeof(sock_addr));
     if (ret) {
         bc_printf("failed: bind != 0\n");
-        close(local_server_sockfd);
+        bc_close(&local_server_sockfd);
         return -2;
     }
 
@@ -460,13 +498,15 @@ int startLocalServer()
 
     if (ret) {
         bc_printf("failed: listen != 0\n");
-        close(local_server_sockfd);
+        bc_close(&local_server_sockfd);
         return -3;
     }
 
     /* first set the polling period if there is no client connect to the local server*/
-    tv.tv_sec = 0;
-    tv.tv_usec = SMART_CONFIG_CHECK_UNIT * 1000;
+    // tv.tv_sec = 0;
+    // tv.tv_usec = SMART_CONFIG_CHECK_UNIT * 1000;
+    tv.tv_sec = sec;
+    tv.tv_usec = usec;
 
     /* main task cycle */
     while(1) {
@@ -480,15 +520,17 @@ int startLocalServer()
         if(ret < 0) {
             /* error occurred */
             bc_printf("failed: select != 0\n");
-            close(local_server_sockfd);
+            bc_close(&local_server_sockfd);
             return -4;
         } else if(0 == ret) {
             /* timeout occurred */
-            tv.tv_sec = 0;
-            tv.tv_usec = SMART_CONFIG_CHECK_UNIT * 1000;
-            if(g_runCount++ > SMART_CONFIG_CHECK_COUNT) {
-                close(local_server_sockfd);
-                bc_printf("failed: g_runCount > SMART_CONFIG_CHECK_COUNT\n");
+            bc_printf("timeout: select == 0\n");
+            tv.tv_sec = sec;
+            tv.tv_usec = usec;
+            // if(g_runCount++ > SMART_CONFIG_CHECK_COUNT) 
+            if(g_runCount++ > count) {
+                bc_close(&local_server_sockfd);
+                bc_printf("failed: g_runCount > count\n");
                 return -5;
             }
         } else if(FD_ISSET(local_server_sockfd, &rfds)) {
@@ -496,18 +538,18 @@ int startLocalServer()
             FD_CLR(local_server_sockfd, &rfds);
             local_client_sockfd = accept(local_server_sockfd, (struct sockaddr*)&sock_addr, &addr_len);
             if (local_client_sockfd < 0) {
-                close(local_server_sockfd);
+                bc_close(&local_server_sockfd);
                 return -6;
             }
             len = handleBpPacket(local_client_sockfd, RECV_BUF, RECV_BUF_SIZE, &type_and_flags);
             if(len <= 0) {
-                close(local_client_sockfd);
+                bc_close(&local_client_sockfd);
                 continue;
             }
 
             /* check if the BPPacket of SPECSET */
             if(BP_PACK_TYPE_SPECSET != ((type_and_flags >> 4) & 0x0F)) {
-                close(local_client_sockfd);
+                bc_close(&local_client_sockfd);
                 continue;
             }
 
@@ -537,16 +579,25 @@ int startLocalServer()
                 }
                 str_specack.Type = str_specset.Type;
                 bc_printf("* :%s,%s,%s: \n", ssid, pass, user);
+
+                memcpy_bps(g_bcWifiInfo.stationConfig.ssid, ssid, sizeof(g_bcWifiInfo.stationConfig.ssid));
+                memcpy_bps(g_bcWifiInfo.stationConfig.password, pass, sizeof(g_bcWifiInfo.stationConfig.password));
                 p_pack_buf = BP_PackSpecack(&BPContextEmbeded, &str_specack);
                 n=send(local_client_sockfd,p_pack_buf->PackStart,p_pack_buf->MsgSize,0);
             }
-            close(local_client_sockfd);
-            close(local_server_sockfd);
+            bc_close(&local_client_sockfd);
+            bc_close(&local_server_sockfd);
             if(0 != str_specack.RetCode) {
                 bc_printf("failed: 0 != str_specack.RetCode\n");
                 return -7;
             }
             break;
+        }
+
+        if(EN_LOGIC_6 == g_NetConfigLogic) {
+            bc_close(&local_client_sockfd);
+            bc_close(&local_server_sockfd);
+            return -8;
         }
     }
 

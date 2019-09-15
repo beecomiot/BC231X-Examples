@@ -29,8 +29,10 @@
   Wifi
  */
 #define NS_WIFI_CONNECTED               0x00
-#define NS_WIFI_NET_SETTING             0x01
-#define NS_WIFI_ROUTER_CONNECTING       0x02
+#define NS_WIFI_NET_CONNECTING          0x01
+#define NS_WIFI_NET_SETTING             0x02
+#define NS_WIFI_ROUTER_CONNECTING       0x03
+#define NS_WIFI_NO_CONFIGURE            0x04
 
 /**
   GPRS

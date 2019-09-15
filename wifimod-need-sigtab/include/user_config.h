@@ -28,7 +28,7 @@
 #define TASK_PERIOD_MS                      100     // 100ms
 
 /* task stack size */
-#define BPS_TASK_STACK_WORDS                256     // 256 x 4 bytes(1024 bytes)
+#define BPS_TASK_STACK_WORDS                512     // 256 x 4 bytes(1024 bytes)
 #define LED_INDICATOR_TASK_STACK_WORDS      176
 #define NET_CONFIG_TASK_STACK_WORDS         512
 #define STATE_MNG_TASK_STACK_WORDS          176

@@ -281,3 +281,14 @@ bool ICACHE_FLASH_ATTR stop_wifi_station(){
     }
     return true;
 }
+
+bool ICACHE_FLASH_ATTR stop_wifi_ap(){
+    WIFI_MODE mode = wifi_get_opmode();
+    mode &= ~SOFTAP_MODE;
+    if(!wifi_set_mode(mode)){
+        os_printf("Failed to disable AP mode!\n");
+        return false;
+    }   
+    return true;
+}
+

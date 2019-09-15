@@ -12,9 +12,12 @@
 
 /* user headers */
 #include <user_config.h>
+#include <net_config.h>
 #include <file_config.h>
 #include <bps_task.h>
 #include <bps_public.h>
+#include <state_mng.h>
+#include <led_indicator.h>
 #include <bps_parse.h>
 #include <bps_ret_code.h>
 #include <bps_comm_type.h>
@@ -116,36 +119,66 @@ LOCAL void bps_task(void* p)
                     break;
                 case CMD_OPEN_NETSET_WORD_REQ:
                     bc_printf("CMD_OPEN_NETSET_WORD_REQ bps_task\r\n");
-                    /* TODO: parse and do ping packet */
-                    bpsPackData.pu.openNetsetRsp.retCode = 0; // TODO: test data
+                    reqType = parseData.pu.openNetsetReq.type;
+                    if(reqType && getModuleState() != EN_MS_NET_CONFIG) {
+                        /* open netset */
+                        /* smart config */
+                        if(getNetMode() == NM_WIFI_SMARTCONFIG) {
+                            updateNetConfigLogic(EN_LOGIC_5);
+                        } else {
+                            /* AP */
+                            updateNetConfigLogic(EN_LOGIC_4);
+                        }
+                        updateModuleState(EN_MS_NET_CONFIG);
+                        updateIndicator(EN_INDICATOR_NET_CONFIG);
+                    } else {
+                        /* close netset */
+                        updateNetConfigLogic(EN_LOGIC_6);
+                    }
+
+                    bpsPackData.pu.openNetsetRsp.retCode = BPS_RET_CODE_OK;
                     tmpLen = BPSPackOpenNetsetRsp(&(bpsPackData.pu.openNetsetRsp), sendBufTmp, packRmnSize);
                     break;
                 case CMD_OPEN_NETSET_WORD_RSP:
                     break;
                 case CMD_CONFIG_NETSET_WORD_REQ:
-                    bc_printf("CMD_CONFIG_NETSET_WORD_REQ bps_task\r\n");
+                    bc_printf("CMD_CONFIG_NETSET_WORD_REQ bps_task: \r\n");
                     reqType = parseData.pu.configNetsetReq.type;
                     paraU8 = parseData.pu.configNetsetReq.mode;
                     if(QUERY_RT_CONFIG_NET == reqType) {
-                        /* do nothing */
-                    } if(SET_RT_CONFIG_NET == reqType) {
+                        bpsPackData.pu.configNetsetRsp.retCode = BPS_RET_CODE_OK;
+                    } else if(SET_RT_CONFIG_NET == reqType) {
                         if(NM_WIFI_SMARTCONFIG != paraU8 && NM_WIFI_AP != paraU8) {
                             bpsPackData.pu.configNetsetRsp.retCode = BPS_RET_CODE_CMD_PARA_INVALID;
                         } else {
                             sprintf(tmpString, "%d", paraU8);
                             ConfigWrite(EN_CONFIG_ID_NET_MODE, tmpString);
                             setNetMode(paraU8);
+                            bpsPackData.pu.configNetsetRsp.retCode = BPS_RET_CODE_OK;
                         }
                     } else {
                         bpsPackData.pu.configNetsetRsp.retCode = BPS_RET_CODE_CMD_TYPE_INVALID;
                     }
                     bpsPackData.pu.configNetsetRsp.commType = CT_WIFI;
                     bpsPackData.pu.configNetsetRsp.mode = getNetMode();
+                    tmpLen = BPSPackConfigNetsetRsp(&(bpsPackData.pu.configNetsetRsp), sendBufTmp, packRmnSize);
                     break;
                 case CMD_CONFIG_NETSET_WORD_RSP:
                 case CMD_NETSTATE_QUERY_WORD_REQ:
                     bc_printf("CMD_NETSTATE_QUERY_WORD_REQ bps_task\r\n");
-                    bpsPackData.pu.netstateQueryRsp.state = NS_WIFI_CONNECTED; // TODO: test data
+                    BPS_UINT8 stateTmp = NS_WIFI_CONNECTED;
+                    if(EN_MS_NET_CONFIG == getModuleState()) {
+                        stateTmp = NS_WIFI_NET_SETTING;
+                    } else if(EN_INDICATOR_COMM_OK == getIndicator()) {
+                        stateTmp = NS_WIFI_CONNECTED;
+                    } else if(g_bcWifiInfo.isWifiInfoSet && STATION_GOT_IP != wifi_station_get_connect_status()) {
+                        stateTmp = NS_WIFI_ROUTER_CONNECTING;
+                    } else if(g_bcWifiInfo.isWifiInfoSet && EN_INDICATOR_SERV_CONNECTING == getIndicator()) {
+                        stateTmp = NS_WIFI_NET_CONNECTING;
+                    } else {
+                        stateTmp = NS_WIFI_NO_CONFIGURE;
+                    }
+                    bpsPackData.pu.netstateQueryRsp.state = stateTmp;
                     tmpLen = BPSPackNetstateQueryRsp(&(bpsPackData.pu.netstateQueryRsp), sendBufTmp, packRmnSize);
                     break;
                 case CMD_NETSTATE_QUERY_WORD_RSP:
