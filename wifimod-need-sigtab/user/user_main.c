@@ -202,9 +202,16 @@ LOCAL void init_task(void* p)
         st=EN_INDICATOR_CRASH;
     }
 
+    /* create queue for serial */
+    g_BcCommQueue = xQueueCreate(BC_COM_QUEUE_SIZE, sizeof(BPSPacketData));
+    if(NULL == g_BcCommQueue) {
+        bc_printf("bc com queue created failed\n");
+        st=EN_INDICATOR_CRASH;
+    }
+
     /* create queue for state manage */
     g_StateQueue = xQueueCreate(STATE_MNG_QUEUE_SIZE, sizeof(EnModuleState));
-    if(NULL == g_ComQueue) {
+    if(NULL == g_StateQueue) {
         bc_printf("state queue created failed\n");
         st=EN_INDICATOR_CRASH;
     }

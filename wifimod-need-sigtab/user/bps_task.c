@@ -209,9 +209,13 @@ LOCAL void bps_task(void* p)
                 case CMD_REPORT_SIG_WORD_REQ: 
                     bc_printf("CMD_REPORT_SIG_WORD_REQ bps_task\r\n");
                     /* TODO: parse and do report signal packet, then response it after the net server responded */
-                    bpsPackData.pu.reportSigRsp.retCode = BPS_RET_CODE_OK;
-                    tmpLen = BPSPackReportSigRsp(&(bpsPackData.pu.reportSigRsp), sendBufTmp, packRmnSize);
+                    // bpsPackData.pu.reportSigRsp.retCode = BPS_RET_CODE_OK;
+                    // tmpLen = BPSPackReportSigRsp(&(bpsPackData.pu.reportSigRsp), sendBufTmp, packRmnSize);
+		    xQueueSendToBack(g_BcCommQueue, &parseData, 0);
+		    break;
                 case CMD_REPORT_SIG_WORD_RSP:
+                    bc_printf("CMD_REPORT_SIG_WORD_RSP bps_task\r\n");
+                    tmpLen = BPSPackReportSigRsp(&(parseData.pu.reportSigRsp), sendBufTmp, packRmnSize);
                     break;
                 case CMD_POST_WORD_REQ:
                     /* packet from internet */
@@ -221,6 +225,7 @@ LOCAL void bps_task(void* p)
                 case CMD_POST_WORD_RSP:
                     bc_printf("CMD_POST_WORD_RSP bps_task\r\n");
                     // tmpLen = BPSParsePostRsp(&parseData, sendBufTmp, packRmnSize);
+		    xQueueSendToBack(g_BcCommQueue, &parseData, 0);
                     break;
                 case CMD_GET_SIG_WORD_REQ:
                 case CMD_GET_SIG_WORD_RSP:

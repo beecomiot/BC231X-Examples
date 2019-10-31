@@ -2,6 +2,7 @@
 #define __BC_COMM_H__
 
 #include <bp_public.h>
+#include "freertos/queue.h"
 
 typedef struct BcWifiInfo {
     uint8_t isWifiInfoSet;
@@ -9,6 +10,7 @@ typedef struct BcWifiInfo {
 } BcWifiInfo;
 
 extern BcWifiInfo g_bcWifiInfo;
+extern xQueueHandle g_BcCommQueue;
 
 int ICACHE_FLASH_ATTR handleBpPacket(int sockfd, BP_UINT8 * recvBuf, BP_WORD size, BP_UINT8 * type_and_flags);
 

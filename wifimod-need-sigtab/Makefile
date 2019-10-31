@@ -28,6 +28,7 @@ SUBDIRS=    \
 endif # } PDIR
 
 LDDIR = $(SDK_PATH)/ld
+MYLIBS_DIR = mylibs
 
 CCFLAGS += -Os
 
@@ -79,8 +80,8 @@ LINKFLAGS_eagle.app.v6 = \
 	-lssl	\
 	-lwpa	\
 	-lwps		\
-	libbpclient.a   \
-	libbps.a   \
+	$(MYLIBS_DIR)/libbpclient.a   \
+	$(MYLIBS_DIR)/libbps.a   \
 	$(DEP_LIBS_eagle.app.v6)					\
 	-Wl,--end-group 	
 
@@ -108,8 +109,9 @@ CONFIGURATION_DEFINES =	-DICACHE_FLASH
 # 	$(UNIVERSAL_TARGET_DEFINES)	\
 # 	$(CONFIGURATION_DEFINES)
 
-DEFINES += -DDEBUG 
+# DEFINES += -DDEBUG 
 DEFINES += -DBPS_CPU32 
+DEFINES += -DBP_CPU32 
 DEFINES += -DBP_USE_STD
 DEFINES += -DBPS_USE_STD
 

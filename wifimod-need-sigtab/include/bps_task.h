@@ -9,6 +9,7 @@
 
 #define BPS_TRANS_BUF_SIZE 512
 #define BPS_COM_QUEUE_SIZE 5
+#define BC_COM_QUEUE_SIZE 5
 
 #define BPS_MODULE_SENDER   0x01
 #define BPS_MCU_RECEIVER    0x00
